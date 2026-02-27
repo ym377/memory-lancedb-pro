@@ -374,6 +374,136 @@ Cross-encoder reranking supports multiple providers via `rerankProvider`:
 
 ---
 
+## Optional: JSONL Session Distillation (Auto-memories from chat logs)
+
+OpenClaw already persists **full session transcripts** as JSONL files:
+
+- `~/.openclaw/agents/<agentId>/sessions/*.jsonl`
+
+This plugin focuses on **high-quality long-term memory**. If you dump raw transcripts into LanceDB, retrieval quality quickly degrades.
+
+Instead, you can run an **hourly distiller** that:
+
+1) Incrementally reads only the **newly appended tail** of each session JSONL (byte-offset cursor)
+2) Filters noise (tool output, injected `<relevant-memories>`, logs, boilerplate)
+3) Uses a dedicated agent to **distill** reusable lessons / rules / preferences into short atomic memories
+4) Stores them via `memory_store` into the right **scope** (`global` or `agent:<agentId>`)
+
+### What you get
+
+- ✅ Fully automatic (cron)
+- ✅ Multi-agent support (main + bots)
+- ✅ No re-reading: cursor ensures the next run only processes new lines
+- ✅ Memory hygiene: quality gate + dedupe + per-run caps
+
+### Script
+
+This repo includes the extractor script:
+
+- `scripts/jsonl_distill.py`
+
+It produces a small **batch JSON** file under:
+
+- `~/.openclaw/state/jsonl-distill/batches/`
+
+and keeps a cursor here:
+
+- `~/.openclaw/state/jsonl-distill/cursor.json`
+
+The script is **safe**: it never modifies session logs.
+
+By default it skips historical reset snapshots (`*.reset.*`) and excludes the distiller agent itself (`memory-distiller`) to prevent self-ingestion loops.
+
+### Recommended setup (dedicated distiller agent)
+
+#### 1) Create a dedicated agent
+
+```bash
+openclaw agents add memory-distiller \
+  --non-interactive \
+  --workspace ~/.openclaw/workspace-memory-distiller \
+  --model openai-codex/gpt-5.2
+```
+
+#### 2) Initialize cursor (Mode A: start from now)
+
+This marks all existing JSONL files as "already read" by setting offsets to EOF.
+
+```bash
+# Set PLUGIN_DIR to where this plugin is installed.
+# - If you cloned into your OpenClaw workspace (recommended):
+#   PLUGIN_DIR="$HOME/.openclaw/workspace/plugins/memory-lancedb-pro"
+# - Otherwise, check: `openclaw plugins info memory-lancedb-pro` and locate the directory.
+PLUGIN_DIR="/path/to/memory-lancedb-pro"
+
+python3 "$PLUGIN_DIR/scripts/jsonl_distill.py" init
+```
+
+#### 3) Create an hourly cron job (Asia/Shanghai)
+
+Tip: start the message with `run ...` so `memory-lancedb-pro`'s adaptive retrieval will skip auto-recall injection (saves tokens).
+
+```bash
+# IMPORTANT: replace <PLUGIN_DIR> in the template below with your actual plugin path.
+MSG=$(cat <<'EOF'
+run jsonl memory distill
+
+Goal: distill NEW chat content from OpenClaw session JSONL files into high-quality LanceDB memories using memory_store.
+
+Hard rules:
+- Incremental only: call the extractor script; do NOT scan full history.
+- Store only reusable memories; skip routine chatter.
+- English memory text + final line: Keywords (zh): ...
+- < 500 chars, atomic.
+- <= 3 memories per agent per run; <= 3 global per run.
+- Scope: global for broadly reusable; otherwise agent:<agentId>.
+
+Workflow:
+1) exec: python3 <PLUGIN_DIR>/scripts/jsonl_distill.py run
+2) If noop: stop.
+3) Read batchFile (created/pending)
+4) memory_store(...) for selected memories
+5) exec: python3 <PLUGIN_DIR>/scripts/jsonl_distill.py commit --batch-file <batchFile>
+EOF
+)
+
+openclaw cron add \
+  --agent memory-distiller \
+  --name "jsonl-memory-distill (hourly)" \
+  --cron "0 * * * *" \
+  --tz "Asia/Shanghai" \
+  --session isolated \
+  --wake now \
+  --timeout-seconds 420 \
+  --stagger 5m \
+  --no-deliver \
+  --message "$MSG"
+```
+
+#### 4) Debug run
+
+```bash
+openclaw cron run <jobId> --expect-final --timeout 180000
+openclaw cron runs --id <jobId> --limit 5
+```
+
+### Scope strategy (recommended)
+
+When distilling **all agents**, always set `scope` explicitly when calling `memory_store`:
+
+- Broadly reusable → `scope=global`
+- Agent-specific → `scope=agent:<agentId>`
+
+This prevents cross-bot memory pollution.
+
+### Rollback
+
+- Disable/remove cron job: `openclaw cron disable <jobId>` / `openclaw cron rm <jobId>`
+- Delete agent: `openclaw agents delete memory-distiller`
+- Remove cursor state: `rm -rf ~/.openclaw/state/jsonl-distill/`
+
+---
+
 ## CLI Commands
 
 ```bash
