@@ -364,7 +364,8 @@ const memoryLanceDBProPlugin = {
     // ========================================================================
 
     // Auto-recall: inject relevant memories before agent starts
-    if (config.autoRecall !== false) {
+    // Default is OFF to prevent the model from accidentally echoing injected context.
+    if (config.autoRecall === true) {
       api.on("before_agent_start", async (event, ctx) => {
         if (!event.prompt || shouldSkipRetrieval(event.prompt)) {
           return;
@@ -733,7 +734,8 @@ function parsePluginConfig(value: unknown): PluginConfig {
       },
       dbPath: typeof cfg.dbPath === "string" ? cfg.dbPath : undefined,
       autoCapture: cfg.autoCapture !== false,
-      autoRecall: cfg.autoRecall !== false,
+      // Default OFF: only enable when explicitly set to true.
+      autoRecall: cfg.autoRecall === true,
       captureAssistant: cfg.captureAssistant === true,
       retrieval: typeof cfg.retrieval === "object" && cfg.retrieval !== null ? cfg.retrieval as any : undefined,
       scopes: typeof cfg.scopes === "object" && cfg.scopes !== null ? cfg.scopes as any : undefined,

@@ -336,7 +336,7 @@ openclaw config get plugins.slots.memory
   },
   "dbPath": "~/.openclaw/memory/lancedb-pro",
   "autoCapture": true,
-  "autoRecall": true,
+  "autoRecall": false,
   "retrieval": {
     "mode": "hybrid",
     "vectorWeight": 0.7,

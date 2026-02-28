@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.11
+
+- Change: set `autoRecall` default to `false` to avoid the model echoing injected `<relevant-memories>` blocks.
+
 ## 1.0.10
 
 - Fix: avoid blocking OpenClaw gateway startup on external network calls by running startup self-checks in the background with timeouts.
