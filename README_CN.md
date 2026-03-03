@@ -559,6 +559,8 @@ openclaw memory-pro migrate verify [--source /path]
 
 ## 数据库 Schema
 
+<img width="430" height="150" alt="image" src="https://github.com/user-attachments/assets/6a273485-b05c-4f37-a38d-5867b01678ed" />读取器：https://jina.ai/api-dashboard/
+
 LanceDB 表 `memories`：
 
 | 字段 | 类型 | 说明 |
