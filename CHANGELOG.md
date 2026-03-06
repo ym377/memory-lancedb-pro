@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.0.32
+
+- Fix: strip OpenClaw `Conversation info` / `Sender` metadata noise before auto-capture matching and adaptive retrieval normalization, reducing false captures and noisy retrieval triggers.
+- Fix: parse `autoRecallMinRepeated` from plugin config so repeated-memory suppression works when configured.
+
+PR: #50
+
+---
+
+
+## 1.0.31
+
+- Fix: `memory-pro import` now preserves provided IDs and is idempotent (skips if ID already exists).
+
+## 1.0.26
+
+**Access Reinforcement for Time Decay**
+
+- **Feat**: Access reinforcement — frequently *manually recalled* memories decay more slowly (spaced-repetition style)
+- **New**: `AccessTracker` with debounced metadata write-back (records accessCount / lastAccessedAt)
+- **New**: Config options under `retrieval`: `reinforcementFactor` (default: 0.5) and `maxHalfLifeMultiplier` (default: 3)
+- **New**: `MemoryStore.getById()` pure-read helper for efficient metadata lookup
+
+PR: #37
+
+Breaking changes: None. Backward compatible (set `reinforcementFactor: 0` to disable).
+
+---
+
 
 ## 1.0.22
 
